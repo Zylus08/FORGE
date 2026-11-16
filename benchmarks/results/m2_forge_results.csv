@@ -1,0 +1,6 @@
+backend,epoch,epoch_time_s,samples_per_sec,train_accuracy_pct,test_accuracy_pct,test_loss,median_step_time_ms,p95_step_time_ms,median_data_time_ms,median_fwd_time_ms,median_bwd_time_ms,median_opt_time_ms,num_steps_timed,compilation_time_s
+forge,1,117.4578,425.68,38.754,47.09,1.463637,285.782,304.893,1.22,123.934,157.141,2.568,389,
+forge,2,114.2798,437.52,53.392,57.96,1.181193,292.89,317.18,1.258,127.134,160.022,2.983,391,
+forge,3,114.114,438.16,60.416,62.04,1.0719,290.366,323.135,1.295,128.039,158.4,2.893,391,
+forge,4,117.5201,425.46,64.796,61.25,1.124478,300.769,331.786,1.228,133.845,161.064,3.291,391,
+forge,5,113.6554,439.93,68.262,68.98,0.889316,290.066,320.34,1.21,128.024,156.873,2.695,391,

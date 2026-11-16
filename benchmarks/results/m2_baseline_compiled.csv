@@ -1,0 +1,6 @@
+backend,epoch,epoch_time_s,samples_per_sec,train_accuracy_pct,test_accuracy_pct,test_loss,median_step_time_ms,p95_step_time_ms,median_data_time_ms,median_fwd_time_ms,median_bwd_time_ms,median_opt_time_ms,num_steps_timed,compilation_time_s
+torch-compiled,1,127.4934,392.18,38.59,44.24,1.516523,301.148,347.976,1.567,110.57,181.762,5.26,389,4.791
+torch-compiled,2,124.1306,402.8,54.006,59.56,1.130201,317.067,342.621,1.549,124.214,183.207,5.186,391,4.791
+torch-compiled,3,122.3331,408.72,61.18,62.37,1.079363,308.704,359.753,1.517,120.62,179.287,5.045,391,4.791
+torch-compiled,4,124.9127,400.28,65.74,67.0,0.932326,319.032,351.918,1.562,125.282,185.266,5.31,391,4.791
+torch-compiled,5,126.5335,395.15,69.2,65.8,1.021883,321.698,355.677,1.599,126.726,187.681,5.482,391,4.791
