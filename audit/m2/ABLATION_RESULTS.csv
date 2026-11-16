@@ -1,0 +1,7 @@
+configuration,median_step_ms,median_fwd_ms,median_bwd_ms,samples_per_sec,speedup_vs_B0,speedup_vs_M1
+"1. Stock Eager (B0, NCHW)",851.12,309.52,515.45,150.39,1.0,0.253
+"2. Stock Tuned (B1, NHWC)",669.87,225.67,429.36,191.08,1.271,0.322
+3. M1 FORGE Prototype (Python autograd),215.54,91.3,117.41,593.84,3.949,1.0
+4. M2 C++ Autograd Dispatch (NCHW),210.04,85.34,116.47,609.4,4.052,1.026
+5. M2 Fused Add+ReLU (NCHW),300.78,120.93,170.46,425.56,2.83,0.717
+6. M2 Full Optimized (NHWC),300.7,103.84,180.98,425.67,2.83,0.717

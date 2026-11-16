@@ -1,0 +1,40 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.2, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\mishr\anaconda3\envs\reswork\python.exe
+cachedir: .pytest_cache
+rootdir: E:\FORGE
+configfile: pyproject.toml
+plugins: anyio-4.12.1
+collecting ... collected 24 items
+
+tests/benchmark/test_benchmark_harness.py::test_benchmark_csv_output_columns PASSED [  4%]
+tests/benchmark/test_benchmark_harness.py::test_timing_measurements_are_positive_and_finite PASSED [  8%]
+tests/benchmark/test_benchmark_harness.py::test_warmup_steps_excluded_from_reported_timing PASSED [ 12%]
+tests/integration/test_training_smoke.py::test_training_smoke_2_steps[torch-eager] PASSED [ 16%]
+tests/integration/test_training_smoke.py::test_training_smoke_2_steps[torch-tuned] PASSED [ 20%]
+tests/integration/test_training_smoke.py::test_training_smoke_2_steps[forge] PASSED [ 25%]
+tests/numerical/test_fused_add_relu.py::test_fused_add_relu_parity PASSED [ 29%]
+tests/numerical/test_fused_add_relu.py::test_fused_add_relu_gradcheck PASSED [ 33%]
+tests/numerical/test_fused_relu.py::test_forward_parity_shapes PASSED    [ 37%]
+tests/numerical/test_fused_relu.py::test_backward_parity_shapes PASSED   [ 41%]
+tests/numerical/test_fused_relu.py::test_non_contiguous_inputs PASSED    [ 45%]
+tests/numerical/test_fused_relu.py::test_edge_cases PASSED               [ 50%]
+tests/numerical/test_fused_relu.py::test_mutation_safety PASSED          [ 54%]
+tests/numerical/test_fused_relu.py::test_sequential_calls PASSED         [ 58%]
+tests/numerical/test_fused_relu.py::test_different_thread_counts PASSED  [ 62%]
+tests/numerical/test_fused_relu.py::test_gradcheck PASSED                [ 66%]
+tests/numerical/test_fused_relu.py::test_fused_relu_bias_parity PASSED   [ 70%]
+tests/numerical/test_fused_relu.py::test_forge_replace_ops PASSED        [ 75%]
+tests/numerical/test_fused_relu.py::test_forge_patch_context PASSED      [ 79%]
+tests/numerical/test_paired_training.py::test_paired_training_exact_parity PASSED [ 83%]
+tests/unit/test_workload_config.py::test_workload_config_loads_correctly PASSED [ 87%]
+tests/unit/test_workload_config.py::test_model_parameter_count PASSED    [ 91%]
+tests/unit/test_workload_config.py::test_seed_setting_reproducibility PASSED [ 95%]
+tests/unit/test_workload_config.py::test_dataset_transforms_deterministic PASSED [100%]
+
+============================== warnings summary ===============================
+tests/numerical/test_fused_relu.py::test_gradcheck
+  C:\Users\mishr\anaconda3\envs\reswork\Lib\site-packages\torch\autograd\gradcheck.py:2139: UserWarning: Input #0 requires gradient and is not a double precision floating point or complex. This check will likely fail if all the inputs are not of double precision floating point or complex. 
+    _check_inputs(tupled_inputs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 24 passed, 1 warning in 16.01s ========================

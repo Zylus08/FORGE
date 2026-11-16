@@ -9,6 +9,30 @@ Usage:
 """
 import os
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+
+# Ensure MSVC compiler environment is present for TorchInductor C++ codegen on Windows
+msvc_bin = r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64"
+msvc_inc = r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\include"
+msvc_lib = r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\lib\x64"
+ucrt_inc = r"C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt"
+shared_inc = r"C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\shared"
+um_inc   = r"C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\um"
+ucrt_lib = r"C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64"
+um_lib   = r"C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\um\x64"
+
+if os.path.exists(msvc_bin) and msvc_bin not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = f"{msvc_bin};" + os.environ.get("PATH", "")
+if os.path.exists(msvc_inc):
+    current_inc = os.environ.get("INCLUDE", "")
+    all_incs = f"{msvc_inc};{ucrt_inc};{shared_inc};{um_inc}"
+    if msvc_inc not in current_inc:
+        os.environ["INCLUDE"] = f"{all_incs};" + current_inc
+if os.path.exists(msvc_lib):
+    current_lib = os.environ.get("LIB", "")
+    all_libs = f"{msvc_lib};{ucrt_lib};{um_lib}"
+    if msvc_lib not in current_lib:
+        os.environ["LIB"] = f"{all_libs};" + current_lib
+
 import argparse
 import csv
 import json
@@ -47,6 +71,12 @@ def set_seeds(seed: int) -> None:
 # Data loading
 # ---------------------------------------------------------------------------
 
+def seed_worker(worker_id: int) -> None:
+    worker_seed = 42 + worker_id
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 def get_cifar10_loaders(
     batch_size: int = 128,
     num_workers: int = 2,
@@ -73,12 +103,16 @@ def get_cifar10_loaders(
         transforms.ToTensor(),
         normalize,
     ])
+    download = not (Path(data_root) / "cifar-10-batches-py").exists()
     train_dataset = torchvision.datasets.CIFAR10(
-        root=data_root, train=True, download=True, transform=train_transform
+        root=data_root, train=True, download=download, transform=train_transform
     )
     test_dataset = torchvision.datasets.CIFAR10(
-        root=data_root, train=False, download=True, transform=test_transform
+        root=data_root, train=False, download=download, transform=test_transform
     )
+    g = torch.Generator()
+    g.manual_seed(42)
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -86,6 +120,8 @@ def get_cifar10_loaders(
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=(num_workers > 0),
+        worker_init_fn=seed_worker if num_workers > 0 else None,
+        generator=g,
     )
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
@@ -94,6 +130,7 @@ def get_cifar10_loaders(
         num_workers=num_workers,
         pin_memory=pin_memory,
         persistent_workers=(num_workers > 0),
+        worker_init_fn=seed_worker if num_workers > 0 else None,
     )
     return train_loader, test_loader
 
@@ -274,8 +311,8 @@ def run_benchmark(args) -> List[Dict]:
     print(f"Physical cores: {physical_cores}")
     print(f"{'='*60}\n")
 
-    # Num workers for data loading
-    num_workers = 2 if args.backend in ("torch-tuned", "torch-compiled", "forge") else 0
+    # Num workers for data loading (standardized to 2 per FROZEN_WORKLOAD.json)
+    num_workers = 2
 
     # Build model (pre-compile version for timing if compiled)
     model_base = resnet20().to(device)
@@ -284,26 +321,26 @@ def run_benchmark(args) -> List[Dict]:
     compilation_time_s: Optional[float] = None
     if args.backend == "torch-compiled":
         print("Measuring compilation overhead...")
-        # Warm up with a fake forward/backward to trigger compilation
         t_compile_start = time.perf_counter()
-        model_compiled = configure_backend(args.backend, resnet20().to(device))
-        # Trigger compilation with a dummy forward+backward
-        dummy_input = torch.randn(128, 3, 32, 32)
-        dummy_target = torch.zeros(128, dtype=torch.long)
-        criterion_dummy = nn.CrossEntropyLoss()
-        optimizer_dummy = torch.optim.SGD(model_compiled.parameters(), lr=0.01)
+        # Compile model
+        model = configure_backend(args.backend, model_base)
+        # Warm up with a fake forward/backward on a separate dummy model to measure compilation overhead
         try:
-            out = model_compiled(dummy_input)
+            dummy_model = torch.compile(resnet20().to(device), backend="inductor")
+            dummy_input = torch.randn(128, 3, 32, 32)
+            dummy_target = torch.zeros(128, dtype=torch.long)
+            criterion_dummy = nn.CrossEntropyLoss()
+            optimizer_dummy = torch.optim.SGD(dummy_model.parameters(), lr=0.01)
+            out = dummy_model(dummy_input)
             loss = criterion_dummy(out, dummy_target)
             loss.backward()
             optimizer_dummy.step()
+            del dummy_model, dummy_input, dummy_target
         except Exception as e:
             print(f"  [warn] Compilation warm-up error: {e}")
         t_compile_end = time.perf_counter()
         compilation_time_s = t_compile_end - t_compile_start
         print(f"  Compilation time: {compilation_time_s:.2f}s")
-        model = model_compiled
-        set_seeds(args.seed)
     else:
         model = configure_backend(args.backend, model_base)
 
@@ -335,6 +372,11 @@ def run_benchmark(args) -> List[Dict]:
             warmup_steps=args.warmup_steps if epoch == 1 else 0,
             backend=args.backend,
         )
+        # Free gradient buffers and collect garbage before evaluation
+        optimizer.zero_grad(set_to_none=True)
+        import gc
+        gc.collect()
+
         test_loss, test_acc = evaluate(model, test_loader, criterion, device)
         scheduler.step()
 

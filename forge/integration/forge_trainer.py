@@ -10,30 +10,61 @@ from forge.backends.forge_backend import (
     FusedReLU,
     FusedReLUBias,
     ForgePatchContext,
-    forge_replace_ops,
+    fused_relu_cpp,
+    fused_add_relu_cpp,
     get_native_ops,
 )
 
 
+class FusedBasicBlock(nn.Module):
+    """BasicBlock optimized with C++ fused ReLU and fused Add+ReLU."""
+    expansion = 1
+
+    def __init__(self, orig_block):
+        super().__init__()
+        self.conv1 = orig_block.conv1
+        self.bn1 = orig_block.bn1
+        self.conv2 = orig_block.conv2
+        self.bn2 = orig_block.bn2
+        self.shortcut = orig_block.shortcut
+
+    def forward(self, x):
+        out = fused_relu_cpp(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        res = self.shortcut(x)
+        out = fused_add_relu_cpp(out, res)
+        return out
+
+
+def forge_replace_ops(model: nn.Module) -> nn.Module:
+    """Recursively replaces nn.ReLU with FusedReLU and BasicBlock with FusedBasicBlock."""
+    from workloads.models.resnet20 import BasicBlock
+
+    for name, child in model.named_children():
+        if isinstance(child, BasicBlock):
+            setattr(model, name, FusedBasicBlock(child))
+        elif isinstance(child, nn.ReLU):
+            setattr(model, name, FusedReLU(inplace=child.inplace))
+        else:
+            forge_replace_ops(child)
+    return model
+
+
 class ForgeAcceleratedModel(nn.Module):
-    """Wrapper that ensures all ReLU operations use native C++ fused kernels."""
+    """Wrapper ensuring all activations and residual paths use native C++ fused kernels."""
 
     def __init__(self, model: nn.Module):
         super().__init__()
-        # Replace any nn.ReLU module instances
-        self.model = forge_replace_ops(model)
-        # Ensure native ops are loaded
         get_native_ops()
+        self.model = forge_replace_ops(model)
 
     def forward(self, *args, **kwargs):
-        # Intercept functional F.relu calls in the model forward pass
         with ForgePatchContext():
             return self.model(*args, **kwargs)
 
 
 def apply_forge_backend(model: nn.Module) -> nn.Module:
     """Applies the FORGE native acceleration backend to a PyTorch model."""
-    # Ensure native extension is compiled and loadable
     get_native_ops()
     return ForgeAcceleratedModel(model)
 
@@ -59,7 +90,6 @@ class ForgeTrainer:
         loader: torch.utils.data.DataLoader,
         warmup_steps: int = 2,
     ) -> Dict:
-        """Run one training epoch with step timing collection."""
         self.model.train()
 
         step_times: List[float] = []
@@ -82,19 +112,16 @@ class ForgeTrainer:
             inputs = inputs.to(self.device, non_blocking=True)
             targets = targets.to(self.device, non_blocking=True)
 
-            # Forward
             t_fwd_start = time.perf_counter()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
             t_fwd_end = time.perf_counter()
 
-            # Backward
             self.optimizer.zero_grad()
             t_bwd_start = time.perf_counter()
             loss.backward()
             t_bwd_end = time.perf_counter()
 
-            # Optimizer
             t_opt_start = time.perf_counter()
             self.optimizer.step()
             t_opt_end = time.perf_counter()

@@ -14,7 +14,7 @@ setup(
     ext_modules=[
         CppExtension(
             name='forge._forge_native',
-            sources=[str(PROJECT_ROOT / 'native' / 'src' / 'fused_relu_linear_backward.cpp')],
+            sources=[str(PROJECT_ROOT / 'native' / 'src' / 'fused_ops_m2.cpp')],
             include_dirs=[str(PROJECT_ROOT / 'native' / 'include')],
             extra_compile_args=extra_compile_args,
         )

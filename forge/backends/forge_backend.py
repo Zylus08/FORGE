@@ -1,4 +1,4 @@
-"""FORGE Native Backend: Fused ReLU and Fused ReLU+Bias using C++20 kernels."""
+"""FORGE Native Backend: High-Performance C++20 Autograd & Fused Residual Kernels."""
 
 import os
 from pathlib import Path
@@ -33,10 +33,9 @@ def get_native_ops():
     # 2. Try JIT compiling via torch.utils.cpp_extension.load
     from torch.utils.cpp_extension import load
     root = Path(__file__).resolve().parent.parent.parent
-    src = root / "native" / "src" / "fused_relu_linear_backward.cpp"
+    src = root / "native" / "src" / "fused_ops_m2.cpp"
     inc = root / "native" / "include"
 
-    # Ensure TEMP directory is on E: if possible to avoid filling C:
     os.environ.setdefault("TEMP", r"E:\FORGE\.tmp")
     os.environ.setdefault("TMP", r"E:\FORGE\.tmp")
     os.makedirs(r"E:\FORGE\.tmp", exist_ok=True)
@@ -51,9 +50,31 @@ def get_native_ops():
     return _native_ops
 
 
-class FusedReLUFunction(torch.autograd.Function):
-    """Autograd function executing native fused ReLU forward and backward."""
+# ---------------------------------------------------------------------------
+# C++ Native Autograd Dispatch (Zero Python Function Boundary Overhead)
+# ---------------------------------------------------------------------------
 
+def fused_relu_cpp(x: torch.Tensor) -> torch.Tensor:
+    """High-speed native C++ autograd-dispatched fused ReLU."""
+    ops = get_native_ops()
+    if hasattr(ops, "native_autograd_fused_relu"):
+        return ops.native_autograd_fused_relu(x)
+    return FusedReLUFunction.apply(x)
+
+
+def fused_add_relu_cpp(x: torch.Tensor, residual: torch.Tensor) -> torch.Tensor:
+    """High-speed native C++ autograd-dispatched fused residual add + ReLU."""
+    ops = get_native_ops()
+    if hasattr(ops, "native_autograd_fused_add_relu"):
+        return ops.native_autograd_fused_add_relu(x, residual)
+    return FusedAddReLUFunction.apply(x, residual)
+
+
+# ---------------------------------------------------------------------------
+# Legacy Python Autograd Functions (for fallback and ablation comparison)
+# ---------------------------------------------------------------------------
+
+class FusedReLUFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input_tensor: torch.Tensor) -> torch.Tensor:
         ops = get_native_ops()
@@ -69,9 +90,23 @@ class FusedReLUFunction(torch.autograd.Function):
         return grad_input
 
 
-class FusedReLUBiasFunction(torch.autograd.Function):
-    """Autograd function executing native fused ReLU+Bias forward and backward."""
+class FusedAddReLUFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, residual: torch.Tensor) -> torch.Tensor:
+        ops = get_native_ops()
+        output, mask = ops.fused_add_relu_forward(x, residual)
+        ctx.save_for_backward(mask)
+        return output
 
+    @staticmethod
+    def backward(ctx, grad_output: torch.Tensor):
+        (mask,) = ctx.saved_tensors
+        ops = get_native_ops()
+        grads = ops.fused_add_relu_backward(grad_output, mask)
+        return grads[0], grads[1]
+
+
+class FusedReLUBiasFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input_tensor: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
         ops = get_native_ops()
@@ -88,29 +123,18 @@ class FusedReLUBiasFunction(torch.autograd.Function):
 
 
 def fused_relu(x: torch.Tensor) -> torch.Tensor:
-    """Functional interface for native fused ReLU."""
-    return FusedReLUFunction.apply(x)
+    return fused_relu_cpp(x)
+
+
+def fused_add_relu(x: torch.Tensor, residual: torch.Tensor) -> torch.Tensor:
+    return fused_add_relu_cpp(x, residual)
 
 
 def fused_relu_bias(x: torch.Tensor, bias: torch.Tensor) -> torch.Tensor:
-    """Functional interface for native fused ReLU+Bias."""
     return FusedReLUBiasFunction.apply(x, bias)
 
 
-class FusedReLU(nn.Module):
-    """nn.Module drop-in replacement for nn.ReLU."""
-
-    def __init__(self, inplace: bool = False):
-        super().__init__()
-        self.inplace = inplace
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return fused_relu(x)
-
-
 class FusedReLUBias(nn.Module):
-    """nn.Module combining channel bias addition and ReLU activation."""
-
     def __init__(self, channels: int):
         super().__init__()
         self.bias = nn.Parameter(torch.zeros(channels))
@@ -119,15 +143,24 @@ class FusedReLUBias(nn.Module):
         return fused_relu_bias(x, self.bias)
 
 
+class FusedReLU(nn.Module):
+    def __init__(self, inplace: bool = False):
+        super().__init__()
+        self.inplace = inplace
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return fused_relu_cpp(x)
+
+
 class ForgePatchContext:
-    """Context manager to patch torch.nn.functional.relu with native fused_relu."""
+    """Context manager patching torch.nn.functional.relu with native fused_relu."""
 
     def __init__(self):
         self._orig_relu = None
 
     def __enter__(self):
         self._orig_relu = F.relu
-        F.relu = fused_relu
+        F.relu = fused_relu_cpp
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
