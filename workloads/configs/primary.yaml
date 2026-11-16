@@ -1,0 +1,21 @@
+workload_id: forge-m1-primary
+model: resnet20
+dataset: cifar10
+num_classes: 10
+batch_size: 128
+optimizer:
+  name: SGD
+  lr: 0.01
+  momentum: 0.9
+  weight_decay: 0.0001
+scheduler:
+  name: MultiStepLR
+  milestones: [80, 120]
+  gamma: 0.1
+loss: CrossEntropyLoss
+seed: 42
+full_epochs: 160
+m1_timing_epochs: 5
+accuracy_target_epoch160: 85.0
+num_workers_dataloader: 2
+pin_memory: false

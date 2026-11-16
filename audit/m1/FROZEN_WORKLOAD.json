@@ -1,0 +1,52 @@
+{
+  "workload_id": "forge-m1-primary",
+  "frozen_at": "2026-11-16",
+  "model": {
+    "name": "resnet20",
+    "file": "workloads/models/resnet20.py",
+    "sha256": "04b759561e758da7fd682636795d759697b8037fcba457d4c983485b67662ff3",
+    "num_parameters": 272474,
+    "architecture": "ResNet-20 (3 groups of 3 BasicBlocks each, channels [16,32,64])",
+    "shortcut_option": "A"
+  },
+  "dataset": {
+    "name": "cifar10",
+    "num_classes": 10,
+    "train_samples": 50000,
+    "test_samples": 10000,
+    "source": "torchvision.datasets.CIFAR10 (auto-downloaded)"
+  },
+  "training": {
+    "batch_size": 128,
+    "loss": "CrossEntropyLoss",
+    "optimizer": {
+      "name": "SGD",
+      "lr": 0.01,
+      "momentum": 0.9,
+      "weight_decay": 0.0001
+    },
+    "scheduler": {
+      "name": "MultiStepLR",
+      "milestones": [80, 120],
+      "gamma": 0.1
+    },
+    "full_epochs": 160,
+    "m1_timing_epochs": 5,
+    "accuracy_target_epoch160": 85.0,
+    "num_workers_dataloader": 2,
+    "pin_memory": false
+  },
+  "reproducibility": {
+    "torch_seed": 42,
+    "random_seed": 42,
+    "numpy_seed": 42
+  },
+  "normalization": {
+    "mean": [0.4914, 0.4822, 0.4465],
+    "std": [0.2023, 0.1994, 0.2010]
+  },
+  "data_augmentation": {
+    "train": ["RandomCrop(32, padding=4)", "RandomHorizontalFlip", "ToTensor", "Normalize"],
+    "test": ["ToTensor", "Normalize"]
+  }
+}

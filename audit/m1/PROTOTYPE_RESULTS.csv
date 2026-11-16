@@ -1,0 +1,5 @@
+backend,epoch,epoch_time_s,samples_per_sec,train_accuracy_pct,test_accuracy_pct,test_loss,median_step_time_ms,speedup_vs_b0,speedup_vs_best_baseline
+torch-eager (B0),5,48.17,1038.0,59.04,59.42,1.1732,122.1,1.00x,0.95x
+torch-tuned (B1),5,47.18,1059.8,59.04,59.42,1.1730,119.7,1.02x,0.97x
+torch-compiled (B2),5,45.80,1091.7,59.04,59.42,1.1730,116.0,1.05x,1.00x
+forge (Prototype),5,175.26,285.3,68.13,66.16,0.9715,447.1,0.27x,0.26x

@@ -1,0 +1,34 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+*.dll
+*.dylib
+*.pyc
+.pytest_cache/
+
+# Large profiling artifacts
+benchmarks/results/tb_trace/
+benchmarks/results/profile_eager.json
+
+# Data & caches
+data/
+*.tar.gz
+*.tgz
+pip_cache/
+.pytest_cache/
+test_trace.json
+
+# C++ build
+build/
+*.obj
+*.lib
+*.exp
+CMakeCache.txt
+CMakeFiles/
+
+# Large benchmark profiling artifacts
+/benchmarks/results/tb_trace/
+/benchmarks/results/profile_eager.json
+

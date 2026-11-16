@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "forge-accelerator"
+version = "0.1.0"
+description = "PyTorch CPU Training Accelerator — FORGE Milestone M1"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0",
+    "numpy",
+    "psutil",
+    "py-cpuinfo",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-benchmark", "black", "mypy"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["forge*"]
