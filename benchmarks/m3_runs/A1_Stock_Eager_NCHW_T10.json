@@ -1,0 +1,32 @@
+{
+  "backend": "torch-eager",
+  "layout": "NCHW",
+  "threads": 10,
+  "interop": 1,
+  "epochs": 1,
+  "warmup_steps": 5,
+  "compile_overhead_s": 0.0,
+  "total_elapsed_s": 54.8454,
+  "peak_rss_mb": 618.57,
+  "git_commit": "c4cfc57fdc1907445c8b592df2445f959dddd574",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "cpu_model": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+  "epochs_data": [
+    {
+      "epoch": 1,
+      "epoch_time_s": 30.0467,
+      "median_step_ms": 390.72,
+      "mean_step_ms": 390.8,
+      "p95_step_ms": 404.56,
+      "median_fwd_ms": 145.75,
+      "median_bwd_ms": 223.7,
+      "median_opt_ms": 4.1,
+      "median_data_ms": 1.74,
+      "samples_per_sec": 327.6,
+      "train_acc_pct": 17.72,
+      "test_acc_pct": 23.45,
+      "test_loss": 1.976,
+      "steps_timed": 30
+    }
+  ]
+}

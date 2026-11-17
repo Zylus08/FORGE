@@ -31,4 +31,6 @@ CMakeFiles/
 # Large benchmark profiling artifacts
 /benchmarks/results/tb_trace/
 /benchmarks/results/profile_eager.json
+.tmp/
+
 

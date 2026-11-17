@@ -347,10 +347,172 @@ torch::Tensor native_autograd_fused_add_relu(torch::Tensor x, torch::Tensor resi
 }
 
 // ---------------------------------------------------------------------------
+// 5. M3 Zero-Mask Fused ReLU (No Boolean Mask Allocation!)
+// ---------------------------------------------------------------------------
+torch::Tensor fused_relu_zero_mask_forward(torch::Tensor input) {
+    auto x   = ensure_flat_f32(input, "input");
+    auto out = torch::empty_like(x, x.suggest_memory_format());
+
+    const float* __restrict xp = x.data_ptr<float>();
+    float*       __restrict op = out.data_ptr<float>();
+    const int64_t N = x.numel();
+
+    at::parallel_for(0, N, /*grain_size=*/32768,
+        [&](int64_t begin, int64_t end) {
+#ifdef __AVX2__
+            const __m256 zero8 = _mm256_setzero_ps();
+            int64_t i = begin;
+            for (; i + 8 <= end; i += 8) {
+                __m256 v = _mm256_loadu_ps(xp + i);
+                __m256 r = _mm256_max_ps(v, zero8);
+                _mm256_storeu_ps(op + i, r);
+            }
+            for (; i < end; ++i) {
+                float v = xp[i];
+                op[i] = v > 0.0f ? v : 0.0f;
+            }
+#else
+            for (int64_t i = begin; i < end; ++i) {
+                float v = xp[i];
+                op[i] = v > 0.0f ? v : 0.0f;
+            }
+#endif
+        });
+    return out;
+}
+
+torch::Tensor fused_relu_zero_mask_backward(torch::Tensor grad_output, torch::Tensor output) {
+    auto g_in  = ensure_flat_f32(grad_output, "grad_output");
+    auto out   = ensure_flat_f32(output, "output");
+    auto g_out = torch::empty_like(g_in, g_in.suggest_memory_format());
+
+    const float* __restrict gip = g_in.data_ptr<float>();
+    const float* __restrict op  = out.data_ptr<float>();
+    float*       __restrict gop = g_out.data_ptr<float>();
+    const int64_t N = g_in.numel();
+
+    at::parallel_for(0, N, /*grain_size=*/32768,
+        [&](int64_t begin, int64_t end) {
+#ifdef __AVX2__
+            const __m256 zero8 = _mm256_setzero_ps();
+            int64_t i = begin;
+            for (; i + 8 <= end; i += 8) {
+                __m256 g    = _mm256_loadu_ps(gip + i);
+                __m256 o    = _mm256_loadu_ps(op + i);
+                __m256 mask = _mm256_cmp_ps(o, zero8, _CMP_GT_OQ);
+                __m256 r    = _mm256_and_ps(g, mask);
+                _mm256_storeu_ps(gop + i, r);
+            }
+            for (; i < end; ++i) {
+                gop[i] = (op[i] > 0.0f) ? gip[i] : 0.0f;
+            }
+#else
+            for (int64_t i = begin; i < end; ++i) {
+                gop[i] = (op[i] > 0.0f) ? gip[i] : 0.0f;
+            }
+#endif
+        });
+    return g_out;
+}
+
+// ---------------------------------------------------------------------------
+// 6. M3 Zero-Mask Fused Add + ReLU (No Boolean Mask Allocation!)
+// ---------------------------------------------------------------------------
+torch::Tensor fused_add_relu_zero_mask_forward(torch::Tensor x, torch::Tensor residual) {
+    auto xc = ensure_flat_f32(x, "x");
+    auto rc = ensure_flat_f32(residual, "residual");
+    TORCH_CHECK(xc.sizes() == rc.sizes(), "forge_ops: x and residual must match shape");
+    auto out = torch::empty_like(xc, xc.suggest_memory_format());
+
+    const float* __restrict xp = xc.data_ptr<float>();
+    const float* __restrict rp = rc.data_ptr<float>();
+    float*       __restrict op = out.data_ptr<float>();
+    const int64_t N = xc.numel();
+
+    at::parallel_for(0, N, /*grain_size=*/32768,
+        [&](int64_t begin, int64_t end) {
+#ifdef __AVX2__
+            const __m256 zero8 = _mm256_setzero_ps();
+            int64_t i = begin;
+            for (; i + 8 <= end; i += 8) {
+                __m256 xv  = _mm256_loadu_ps(xp + i);
+                __m256 rv  = _mm256_loadu_ps(rp + i);
+                __m256 sum = _mm256_add_ps(xv, rv);
+                __m256 r   = _mm256_max_ps(sum, zero8);
+                _mm256_storeu_ps(op + i, r);
+            }
+            for (; i < end; ++i) {
+                float sum = xp[i] + rp[i];
+                op[i] = sum > 0.0f ? sum : 0.0f;
+            }
+#else
+            for (int64_t i = begin; i < end; ++i) {
+                float sum = xp[i] + rp[i];
+                op[i] = sum > 0.0f ? sum : 0.0f;
+            }
+#endif
+        });
+    return out;
+}
+
+std::vector<torch::Tensor> fused_add_relu_zero_mask_backward(torch::Tensor grad_output, torch::Tensor output) {
+    auto grad_in = fused_relu_zero_mask_backward(grad_output, output);
+    return {grad_in, grad_in};
+}
+
+class FusedReLUZeroMaskFunction : public torch::autograd::Function<FusedReLUZeroMaskFunction> {
+public:
+    static torch::Tensor forward(torch::autograd::AutogradContext *ctx, torch::Tensor input) {
+        auto out = fused_relu_zero_mask_forward(input);
+        ctx->save_for_backward({out});
+        return out;
+    }
+
+    static torch::autograd::variable_list backward(torch::autograd::AutogradContext *ctx,
+                                                   torch::autograd::variable_list grad_outputs) {
+        auto saved = ctx->get_saved_variables();
+        auto grad_in = fused_relu_zero_mask_backward(grad_outputs[0], saved[0]);
+        return {grad_in};
+    }
+};
+
+class FusedAddReLUZeroMaskFunction : public torch::autograd::Function<FusedAddReLUZeroMaskFunction> {
+public:
+    static torch::Tensor forward(torch::autograd::AutogradContext *ctx,
+                                 torch::Tensor x,
+                                 torch::Tensor residual) {
+        auto out = fused_add_relu_zero_mask_forward(x, residual);
+        ctx->save_for_backward({out});
+        return out;
+    }
+
+    static torch::autograd::variable_list backward(torch::autograd::AutogradContext *ctx,
+                                                   torch::autograd::variable_list grad_outputs) {
+        auto saved = ctx->get_saved_variables();
+        auto grads = fused_add_relu_zero_mask_backward(grad_outputs[0], saved[0]);
+        return {grads[0], grads[1]};
+    }
+};
+
+torch::Tensor native_autograd_fused_relu_v3(torch::Tensor input) {
+    if (!at::GradMode::is_enabled()) {
+        return at::relu(input);
+    }
+    return FusedReLUZeroMaskFunction::apply(input);
+}
+
+torch::Tensor native_autograd_fused_add_relu_v3(torch::Tensor x, torch::Tensor residual) {
+    if (!at::GradMode::is_enabled()) {
+        return at::relu(x + residual);
+    }
+    return FusedAddReLUZeroMaskFunction::apply(x, residual);
+}
+
+// ---------------------------------------------------------------------------
 // pybind11 module bindings
 // ---------------------------------------------------------------------------
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.doc() = "FORGE M2 native CPU acceleration kernels with C++ Autograd Dispatch";
+    m.doc() = "FORGE M3 native CPU acceleration kernels with C++ Autograd Dispatch";
 
     m.def("fused_relu_forward", &fused_relu_forward, "Fused ReLU forward: (out, mask)");
     m.def("fused_relu_backward", &fused_relu_backward, "Fused ReLU backward: grad_input");
@@ -360,6 +522,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("fused_add_relu_forward", &fused_add_relu_forward, "Fused Add+ReLU forward: (out, mask)");
     m.def("fused_add_relu_backward", &fused_add_relu_backward, "Fused Add+ReLU backward: (grad_x, grad_residual)");
 
-    m.def("native_autograd_fused_relu", &native_autograd_fused_relu, "Native C++ Autograd Fused ReLU");
-    m.def("native_autograd_fused_add_relu", &native_autograd_fused_add_relu, "Native C++ Autograd Fused Add+ReLU");
+    m.def("native_autograd_fused_relu", &native_autograd_fused_relu, "Native C++ Autograd Fused ReLU (M2)");
+    m.def("native_autograd_fused_add_relu", &native_autograd_fused_add_relu, "Native C++ Autograd Fused Add+ReLU (M2)");
+
+    // M3 Zero-Mask bindings
+    m.def("fused_relu_zero_mask_forward", &fused_relu_zero_mask_forward, "M3 Fused ReLU forward (zero mask)");
+    m.def("fused_relu_zero_mask_backward", &fused_relu_zero_mask_backward, "M3 Fused ReLU backward (zero mask)");
+    m.def("fused_add_relu_zero_mask_forward", &fused_add_relu_zero_mask_forward, "M3 Fused Add+ReLU forward (zero mask)");
+    m.def("fused_add_relu_zero_mask_backward", &fused_add_relu_zero_mask_backward, "M3 Fused Add+ReLU backward (zero mask)");
+    m.def("native_autograd_fused_relu_v3", &native_autograd_fused_relu_v3, "Native C++ Autograd Fused ReLU (M3 Zero Mask)");
+    m.def("native_autograd_fused_add_relu_v3", &native_autograd_fused_add_relu_v3, "Native C++ Autograd Fused Add+ReLU (M3 Zero Mask)");
 }

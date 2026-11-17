@@ -55,16 +55,20 @@ def get_native_ops():
 # ---------------------------------------------------------------------------
 
 def fused_relu_cpp(x: torch.Tensor) -> torch.Tensor:
-    """High-speed native C++ autograd-dispatched fused ReLU."""
+    """High-speed native C++ autograd-dispatched fused ReLU (Zero-Mask M3)."""
     ops = get_native_ops()
+    if hasattr(ops, "native_autograd_fused_relu_v3"):
+        return ops.native_autograd_fused_relu_v3(x)
     if hasattr(ops, "native_autograd_fused_relu"):
         return ops.native_autograd_fused_relu(x)
     return FusedReLUFunction.apply(x)
 
 
 def fused_add_relu_cpp(x: torch.Tensor, residual: torch.Tensor) -> torch.Tensor:
-    """High-speed native C++ autograd-dispatched fused residual add + ReLU."""
+    """High-speed native C++ autograd-dispatched fused residual add + ReLU (Zero-Mask M3)."""
     ops = get_native_ops()
+    if hasattr(ops, "native_autograd_fused_add_relu_v3"):
+        return ops.native_autograd_fused_add_relu_v3(x, residual)
     if hasattr(ops, "native_autograd_fused_add_relu"):
         return ops.native_autograd_fused_add_relu(x, residual)
     return FusedAddReLUFunction.apply(x, residual)

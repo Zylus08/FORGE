@@ -1,0 +1,6 @@
+configuration,backend,layout,threads,median_step_ms,speedup_vs_certified_stock,samples_per_sec,status
+A0_Stock_Eager_NHWC_T10,torch-eager,NHWC,10,396.58,1.0000x,322.8,CERTIFIED_BASELINE
+A1_Stock_Eager_NCHW_T10,torch-eager,NCHW,10,390.72,1.0150x,327.6,FASTER
+A2_Stock_Tuned_NHWC_T10,torch-tuned,NHWC,10,413.82,0.9583x,309.3,SLOWER
+A3_Forge_M3_ZeroMask_NHWC_T10,forge,NHWC,10,513.89,0.7717x,249.1,SLOWER
+A4_Forge_M3_ZeroMask_NCHW_T10,forge,NCHW,10,438.9,0.9036x,291.6,SLOWER

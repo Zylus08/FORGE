@@ -30,3 +30,14 @@ std::vector<torch::Tensor> fused_add_relu_backward(torch::Tensor grad_output, to
 // ---------------------------------------------------------------------------
 torch::Tensor native_autograd_fused_relu(torch::Tensor input);
 torch::Tensor native_autograd_fused_add_relu(torch::Tensor x, torch::Tensor residual);
+
+// ---------------------------------------------------------------------------
+// 5. M3 Zero-Mask Fused Operations (Eliminating boolean mask DRAM traffic)
+// ---------------------------------------------------------------------------
+torch::Tensor fused_relu_zero_mask_forward(torch::Tensor input);
+torch::Tensor fused_relu_zero_mask_backward(torch::Tensor grad_output, torch::Tensor output);
+torch::Tensor fused_add_relu_zero_mask_forward(torch::Tensor x, torch::Tensor residual);
+std::vector<torch::Tensor> fused_add_relu_zero_mask_backward(torch::Tensor grad_output, torch::Tensor output);
+
+torch::Tensor native_autograd_fused_relu_v3(torch::Tensor input);
+torch::Tensor native_autograd_fused_add_relu_v3(torch::Tensor x, torch::Tensor residual);

@@ -1,0 +1,6 @@
+experiment_id,backend,layout,threads,median_step_ms,mean_step_ms,p95_step_ms,median_fwd_ms,median_bwd_ms,median_opt_ms,median_data_ms,samples_per_sec,peak_rss_mb,json_path
+A0_Stock_Eager_NHWC_T10,torch-eager,NHWC,10,396.58,400.36,427.39,131.03,239.01,12.77,1.04,322.8,540.27,E:\FORGE\benchmarks\m3_runs\A0_Stock_Eager_NHWC_T10.json
+A1_Stock_Eager_NCHW_T10,torch-eager,NCHW,10,390.72,390.8,404.56,145.75,223.7,4.1,1.74,327.6,618.57,E:\FORGE\benchmarks\m3_runs\A1_Stock_Eager_NCHW_T10.json
+A2_Stock_Tuned_NHWC_T10,torch-tuned,NHWC,10,413.82,416.16,483.13,133.16,254.0,6.95,1.14,309.3,538.61,E:\FORGE\benchmarks\m3_runs\A2_Stock_Tuned_NHWC_T10.json
+A3_Forge_M3_ZeroMask_NHWC_T10,forge,NHWC,10,513.89,512.92,537.09,165.85,334.02,6.57,1.1,249.1,558.26,E:\FORGE\benchmarks\m3_runs\A3_Forge_M3_ZeroMask_NHWC_T10.json
+A4_Forge_M3_ZeroMask_NCHW_T10,forge,NCHW,10,438.9,438.91,457.94,175.52,244.32,3.78,1.75,291.6,605.5,E:\FORGE\benchmarks\m3_runs\A4_Forge_M3_ZeroMask_NCHW_T10.json
