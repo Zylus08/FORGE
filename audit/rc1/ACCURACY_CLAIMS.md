@@ -37,7 +37,30 @@ The table below documents every training horizon actually executed and verified 
 
 ---
 
-## 3. Why the 160-Epoch Horizon Was Not Executed
+## 3. Reconciliation of Historical 5-Epoch Accuracy Discrepancies
+
+Previous milestone documents contained seemingly conflicting 5-epoch validation accuracy results. This audit reconciles the origins of each reported figure:
+
+### 3.1 The M1 Anomaly: 59.42% vs 66.16%
+- **Reported Figures:**
+  - `torch-eager`: 59.42%
+  - `FORGE M1 Prototype`: 66.16%
+- **Investigation & Root Cause:**
+  In Milestone M1, `torch-eager` was executed using standard un-tuned PyTorch settings (`num_workers=0` in `DataLoader`), while the FORGE prototype harness was configured with multithreaded data prefetching (`num_workers=2` with persistent workers).
+  In PyTorch, data augmentation operations (random cropping and horizontal flipping) depend on worker-specific random number generation. Because `num_workers=0` advances the global Python/NumPy RNG while `num_workers=2` spawns independent sub-processes with private worker seeds, the two models trained on **entirely different random crop and flip sequences**. This divergence had zero relation to native kernel arithmetic.
+
+### 3.2 The M2 Re-Validation: Exact Convergence Parity at 66.16%
+When Milestone M2 synchronized the data loading pipeline across all backends using identical worker initialization functions, deterministic seeds (`set_seeds(42)`), and matched worker counts (`num_workers=2`):
+- `torch-tuned` (5 epochs, 488.01 s): **66.16%** validation accuracy.
+- `FORGE M2` (5 epochs, 577.03 s): **66.16%** validation accuracy.
+- `torch-compiled` (5 epochs, 625.39 s): **66.14%** validation accuracy.
+- `torch-eager` (5 epochs, 521.90 s, un-tuned single-worker): **59.42%** validation accuracy.
+
+**Reconciliation Conclusion:** When executed on identical sample sequences, FORGE converges to the exact same 5-epoch validation accuracy as tuned stock PyTorch (**66.16%**).
+
+---
+
+## 4. Why the 160-Epoch Horizon Was Not Executed
 
 Executing the full 160-epoch training horizon was explicitly deferred in accordance with experimental safety and recovery constraints:
 

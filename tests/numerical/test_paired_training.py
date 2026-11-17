@@ -91,6 +91,10 @@ def test_paired_training_exact_parity():
                 mb_diff = (mb1 - mb2).abs().max().item()
                 assert mb_diff < 1e-5, f"Step {step}: Momentum buffer mismatch: {mb_diff}"
 
+        del x, y, out_ref, out_forge, loss_ref, loss_forge
+    import gc
+    gc.collect()
+
 
 if __name__ == "__main__":
     test_paired_training_exact_parity()

@@ -26,7 +26,8 @@ In accordance with strict scientific integrity standards:
 2. **Deterministic Parity & Edge-Case Verification Suite (`tests/numerical/`):**
    - 29 regression tests verifying forward/backward parity ($L_\infty = 0.0$ across 3,674,112 elements).
    - Analytical finite-difference gradient checks (`torch.autograd.gradcheck`).
-   - Verified IEEE-754 semantics: subgradient at zero ($0.0$), signed zero ($+0.0$ vs $-0.0$), NaN clamping, and in-place mutation detection.
+   - Verified IEEE-754 semantics: subgradient at zero ($0.0$), signed zero ($+0.0$ vs $-0.0$), NaN quiet propagation (matching PyTorch `at::relu`), $\pm \infty$ handling, and in-place mutation detection.
+   - Primary supported operational domain: Finite Real FP32 ($\mathbb{R} \subset \text{FP32}$).
    - Deterministic paired training trajectory verification over 10 steps ($L_\infty < 10^{-6}$ across all 269,722 parameters, momentum buffers, and running statistics).
 3. **Subprocess-Isolated Canonical Benchmark Suite (`forge/benchmarking/canonical_runner.py`):**
    - Isolated subprocess execution preventing memory fragmentation, thread pool corruption, and thermal distortion.
@@ -38,7 +39,7 @@ In accordance with strict scientific integrity standards:
 
 All benchmarks measured on Intel Core i7-12650H (10 physical cores: 6 P-cores + 4 E-cores, 16 threads, AVX2, Windows 11 x64, 16 GB DDR5), frozen ResNet-20 CIFAR-10 FP32 workload, batch size 128:
 
-| Configuration | Backend | Layout | Threads | Median Step Time (ms) | 95% Confidence Interval | Throughput (samples/s) | Relative Speedup | Status |
+| Configuration | Backend | Layout | Threads | Mean of Per-Run Medians (ms) | 95% Confidence Interval | Steady-State Throughput (samples/s) | Relative Speedup | Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **`stock_nhwc`** | `torch-eager` | **NHWC** | **10** | **212.11 ms** | **[207.50, 216.72] ms** | **603.5** | **1.0000×** | **CERTIFIED STOCK BASELINE** |
 | `stock_nchw` | `torch-eager` | NCHW | 10 | 222.20 ms | [219.40, 225.00] ms | 576.1 | 0.9546× | Valid Stock Eager |
@@ -46,7 +47,7 @@ All benchmarks measured on Intel Core i7-12650H (10 physical cores: 6 P-cores + 
 | **`forge_nchw`** | `forge` | **NCHW** | **10** | **249.43 ms** | **[236.97, 261.89] ms** | **513.2** | **0.8504×** | **FASTEST FORGE CONFIG** |
 | `forge_nhwc` | `forge` | NHWC | 10 | 272.62 ms | [185.50, 359.75] ms | 469.8 | 0.7780× | FORGE Channels-Last |
 
-*Statistical significance: Two-sample Welch's t-test confirms NHWC is faster than NCHW for stock PyTorch ($t = -5.1927, p = 0.0016$).*
+*Note: Per-run medians are computed over 20 steady-state steps; sample means and 95% confidence intervals (Student's t, $\nu=4$) are computed across independent runs. Two-sample Welch's t-test confirms NHWC is statistically significantly faster than NCHW for stock PyTorch ($t = -5.1927, p = 0.0016$).*
 
 ---
 

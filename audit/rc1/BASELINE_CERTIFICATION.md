@@ -74,6 +74,8 @@ All raw JSON manifests are preserved in `benchmarks/rc1_runs/`:
 | **95% Confidence Interval** | **[207.50 ms, 216.72 ms]** | **[219.40 ms, 225.00 ms]** | **Zero CI overlap** |
 | **Min — Max Range** | 206.25 ms — 215.72 ms | 219.51 ms — 225.29 ms | $\max(\text{NHWC}) < \min(\text{NCHW})$ |
 
+*Statistical Definitions: Per-run medians are computed over 20 steady-state steps within each run (excluding 5 warmup steps). The sample mean of per-run medians, sample median of medians, SEM, and 95% confidence intervals (Student's t, $\nu=4$) are computed across independent runs.*
+
 ### 4.2 Hypothesis Testing
 - **Null Hypothesis ($H_0$):** $\mu_{\text{NHWC}} = \mu_{\text{NCHW}}$ (Mean step time of NHWC equals NCHW).
 - **Alternative Hypothesis ($H_1$):** $\mu_{\text{NHWC}} < \mu_{\text{NCHW}}$ (NHWC is systematically faster than NCHW).

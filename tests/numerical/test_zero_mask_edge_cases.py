@@ -67,19 +67,36 @@ def test_signed_zero_behavior():
 def test_nan_and_inf_handling():
     """Verify IEEE-754 NaN and Inf propagation through Zero-Mask AVX2 kernels.
     
-    Discovery: Intel AVX2 _mm256_max_ps(v, zero) clamps NaN to 0.0f because in x86
-    VMAXPS instruction, when the first operand is NaN, the second operand (0.0f) is returned.
-    Similarly, scalar fallback 'v > 0.0f ? v : 0.0f' evaluates NaN > 0.0f as false,
-    returning 0.0f. PyTorch at::relu propagates NaN.
+    Verifies that NaN inputs propagate as NaN in forward, and produce gradient 1.0
+    in backward (matching stock PyTorch F.relu and threshold_backward semantics).
+    Positive infinity propagates as +inf with grad 1.0; negative infinity clamps to 0.0 with grad 0.0.
     """
+    # 1. Fused ReLU
     x = torch.tensor([float('nan'), float('inf'), float('-inf'), 2.0], requires_grad=True)
     out = fused_relu_cpp(x)
+    out.backward(torch.tensor([1.0, 1.0, 1.0, 1.0]))
     
-    # AVX2 clamp behavior: NaN -> 0.0
-    assert out[0].item() == 0.0, "AVX2 VMAXPS clamps NaN to 0.0f"
-    assert torch.isinf(out[1]) and out[1] > 0, "Forward of +inf is +inf"
-    assert out[2] == 0.0, "Forward of -inf is 0.0"
+    assert torch.isnan(out[0]), "Forward of NaN must propagate as NaN"
+    assert torch.isinf(out[1]) and out[1] > 0, "Forward of +inf must be +inf"
+    assert out[2] == 0.0, "Forward of -inf must be 0.0"
     assert out[3] == 2.0
+    assert x.grad[0].item() == 1.0, "Backward gradient of NaN must match PyTorch (1.0)"
+    assert x.grad[1].item() == 1.0, "Backward gradient of +inf must be 1.0"
+    assert x.grad[2].item() == 0.0, "Backward gradient of -inf must be 0.0"
+    assert x.grad[3].item() == 1.0, "Backward gradient of 2.0 must be 1.0"
+
+    # 2. Fused Add+ReLU
+    x2 = torch.tensor([float('nan'), float('inf'), float('-inf'), 2.0], requires_grad=True)
+    r2 = torch.tensor([0.0, 0.0, 0.0, 0.0], requires_grad=True)
+    out2 = fused_add_relu_cpp(x2, r2)
+    out2.backward(torch.tensor([1.0, 1.0, 1.0, 1.0]))
+    
+    assert torch.isnan(out2[0]), "Add+ReLU Forward of NaN must propagate as NaN"
+    assert torch.isinf(out2[1]) and out2[1] > 0, "Add+ReLU Forward of +inf must be +inf"
+    assert out2[2] == 0.0, "Add+ReLU Forward of -inf must be 0.0"
+    assert out2[3] == 2.0
+    assert x2.grad[0].item() == 1.0, "Add+ReLU Backward grad x of NaN must be 1.0"
+    assert r2.grad[0].item() == 1.0, "Add+ReLU Backward grad r of NaN must be 1.0"
 
 
 def test_inplace_mutation_guard():
@@ -146,8 +163,9 @@ def test_exact_numerical_audit_multi_shape():
         assert fwd_max_diff < 1e-6
         assert gx_max_diff < 1e-6
         assert gr_max_diff < 1e-6
-
-    return metrics
+        del x_ref, r_ref, x_forge, r_forge, out_ref, out_forge, grad_out
+    import gc
+    gc.collect()
 
 if __name__ == "__main__":
     test_derivative_at_zero()
