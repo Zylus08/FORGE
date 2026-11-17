@@ -51,16 +51,20 @@ for (; i < end; ++i) {
   - Backward comparison $+0.0 > 0.0 \implies \text{FALSE} \implies \nabla = 0.0$.
 - **Verdict:** Consistent and correct. Verified in `test_signed_zero_behavior`.
 
-### 2.3 NaN and Infinity Handling (Documented Semantic Difference)
-- **NaN Handling:**
-  - In IEEE-754, any ordered comparison involving NaN evaluates to false. Under `_CMP_GT_OQ` ("Ordered, Quiet"), $\text{NaN} > 0.0$ returns false without signaling an invalid-operation trap.
-  - In AVX2, `_mm256_max_ps(v, zero8)` returns `zero8` (0.0f) when the first operand is NaN, per Intel x86 VMAXPS architecture specification.
-  - Scalar loop: `(NaN > 0.0f) ? NaN : 0.0f` evaluates to false, returning `0.0f`.
-  - **Divergence Note:** Stock PyTorch `at::relu` propagates NaNs through forward activations. FORGE AVX2 clamps NaNs to 0.0f in forward. In valid training trajectories, weights and inputs are finite FP32 numbers, so this semantic difference is dormant during training.
+### 2.3 NaN, Infinity and Supported Numerical Envelope
+- **Implementation Patch for IEEE-754 Nonfinite Compliance:**
+  - Initial M3 Zero-Mask implementation utilized `_mm256_max_ps(v, zero8)`. Under x86 VMAXPS semantics, when operand 1 is NaN, operand 2 (`0.0f`) is returned.
+  - In RC1 patch, the kernel was updated to use `_CMP_LE_OQ` with `_mm256_blendv_ps(v, zero8, le)` and scalar fallback `(v <= 0.0f) ? 0.0f : v`.
+  - Under `_CMP_LE_OQ`, ordered comparison $\text{NaN} \le 0.0$ evaluates to **FALSE**, causing `blendv` to select `v` (preserving and propagating NaN in forward).
+  - In backward, `_CMP_LE_OQ` evaluates $\text{NaN} \le 0.0$ as **FALSE**, causing `blendv` to select upstream gradient `g` ($1.0$).
+  - **Result:** Forward and backward behavior for NaNs now **identically matches stock PyTorch** (`test_nan_and_inf_handling` PASSED).
 - **Infinity Handling:**
-  - $+ \infty > 0.0 \implies \text{TRUE}$, passes gradient through.
-  - $- \infty \le 0.0 \implies \text{FALSE}$, gradient is clamped to $0.0$.
-- **Verdict:** Documented and verified in `test_nan_and_inf_handling`.
+  - $+ \infty > 0.0 \implies \text{TRUE}$, passes value through as $+ \infty$ in forward and gradient $1.0$ in backward.
+  - $- \infty \le 0.0 \implies \text{TRUE}$, clamps to $0.0$ in forward and gradient $0.0$ in backward.
+  - Identically matches stock PyTorch.
+- **Supported Numerical Domain Specification:**
+  - **Primary Operational Domain:** **Finite Real Numbers ($\mathbb{R} \subset \text{FP32}$)**. Deep neural network training algorithms (SGD with weight decay) require finite real activations and weights.
+  - **Extended Nonfinite Behavior:** Nonfinite edge cases ($\pm \infty, \text{NaN}$) adhere strictly to IEEE-754 quiet propagation matching PyTorch `at::relu` and `threshold_backward`.
 
 ---
 

@@ -363,18 +363,19 @@ torch::Tensor fused_relu_zero_mask_forward(torch::Tensor input) {
             const __m256 zero8 = _mm256_setzero_ps();
             int64_t i = begin;
             for (; i + 8 <= end; i += 8) {
-                __m256 v = _mm256_loadu_ps(xp + i);
-                __m256 r = _mm256_max_ps(v, zero8);
+                __m256 v  = _mm256_loadu_ps(xp + i);
+                __m256 le = _mm256_cmp_ps(v, zero8, _CMP_LE_OQ);
+                __m256 r  = _mm256_blendv_ps(v, zero8, le);
                 _mm256_storeu_ps(op + i, r);
             }
             for (; i < end; ++i) {
                 float v = xp[i];
-                op[i] = v > 0.0f ? v : 0.0f;
+                op[i] = (v <= 0.0f) ? 0.0f : v;
             }
 #else
             for (int64_t i = begin; i < end; ++i) {
                 float v = xp[i];
-                op[i] = v > 0.0f ? v : 0.0f;
+                op[i] = (v <= 0.0f) ? 0.0f : v;
             }
 #endif
         });
@@ -397,18 +398,18 @@ torch::Tensor fused_relu_zero_mask_backward(torch::Tensor grad_output, torch::Te
             const __m256 zero8 = _mm256_setzero_ps();
             int64_t i = begin;
             for (; i + 8 <= end; i += 8) {
-                __m256 g    = _mm256_loadu_ps(gip + i);
-                __m256 o    = _mm256_loadu_ps(op + i);
-                __m256 mask = _mm256_cmp_ps(o, zero8, _CMP_GT_OQ);
-                __m256 r    = _mm256_and_ps(g, mask);
+                __m256 g  = _mm256_loadu_ps(gip + i);
+                __m256 o  = _mm256_loadu_ps(op + i);
+                __m256 le = _mm256_cmp_ps(o, zero8, _CMP_LE_OQ);
+                __m256 r  = _mm256_blendv_ps(g, zero8, le);
                 _mm256_storeu_ps(gop + i, r);
             }
             for (; i < end; ++i) {
-                gop[i] = (op[i] > 0.0f) ? gip[i] : 0.0f;
+                gop[i] = (op[i] <= 0.0f) ? 0.0f : gip[i];
             }
 #else
             for (int64_t i = begin; i < end; ++i) {
-                gop[i] = (op[i] > 0.0f) ? gip[i] : 0.0f;
+                gop[i] = (op[i] <= 0.0f) ? 0.0f : gip[i];
             }
 #endif
         });
@@ -438,17 +439,18 @@ torch::Tensor fused_add_relu_zero_mask_forward(torch::Tensor x, torch::Tensor re
                 __m256 xv  = _mm256_loadu_ps(xp + i);
                 __m256 rv  = _mm256_loadu_ps(rp + i);
                 __m256 sum = _mm256_add_ps(xv, rv);
-                __m256 r   = _mm256_max_ps(sum, zero8);
+                __m256 le  = _mm256_cmp_ps(sum, zero8, _CMP_LE_OQ);
+                __m256 r   = _mm256_blendv_ps(sum, zero8, le);
                 _mm256_storeu_ps(op + i, r);
             }
             for (; i < end; ++i) {
                 float sum = xp[i] + rp[i];
-                op[i] = sum > 0.0f ? sum : 0.0f;
+                op[i] = (sum <= 0.0f) ? 0.0f : sum;
             }
 #else
             for (int64_t i = begin; i < end; ++i) {
                 float sum = xp[i] + rp[i];
-                op[i] = sum > 0.0f ? sum : 0.0f;
+                op[i] = (sum <= 0.0f) ? 0.0f : sum;
             }
 #endif
         });

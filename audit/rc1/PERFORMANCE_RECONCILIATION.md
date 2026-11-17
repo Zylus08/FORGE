@@ -51,13 +51,17 @@ Population D: FULL MULTI-EPOCH RUNS (Complete Training Epochs with Periodic Vali
 
 | Metric | Certified Stock Competitor (`torch-eager` NHWC) | Fastest FORGE Variant (`forge` NCHW) | Alternative FORGE Variant (`forge` NHWC) | Relative Performance |
 | :--- | :--- | :--- | :--- | :--- |
-| **Median Step Time** | **212.11 ms** | **249.43 ms** | 272.62 ms | **0.8504× (Stock is 1.18× faster)** |
-| **95% Confidence Interval** | [207.50 ms, 216.72 ms] | [236.97 ms, 261.89 ms] | [185.50 ms, 359.75 ms] | Statistically distinct |
-| **Single-Run Best Time** | 206.25 ms | 248.45 ms | 265.77 ms | — |
-| **Throughput (samples/sec)** | **603.5 smp/s** | **513.2 smp/s** | 469.8 smp/s | **0.8504× throughput ratio** |
+| **Sample Mean of Per-Run Medians** | **212.11 ms** ($\text{SEM} = 1.66\text{ ms}$) | **249.43 ms** ($\text{SEM} = 0.98\text{ ms}$) | 272.62 ms ($\text{SEM} = 6.86\text{ ms}$) | **0.8504× (Stock is 1.18× faster)** |
+| **Sample Median of Medians** | **212.11 ms** | **249.43 ms** | 272.62 ms | 0.8504× |
+| **Raw Per-Run Medians (ms)** | `[206.25, 211.61, 214.85, 212.11, 215.72]` | `[250.41, 248.45]` | `[279.48, 265.77]` | Complete separation |
+| **95% Confidence Interval (Student's t)** | **[207.50 ms, 216.72 ms]** | **[236.97 ms, 261.89 ms]** | [185.50 ms, 359.75 ms] | Disjoint intervals |
+| **Single-Run Best Step Time** | 206.25 ms | 248.45 ms | 265.77 ms | — |
+| **Throughput (samples/sec)** | **603.5 smp/s** (593.4 – 620.6) | **513.2 smp/s** (511.2 – 515.2) | 469.8 smp/s | **0.8504× throughput ratio** |
 | **Slowdown Percentage** | Baseline (0.00%) | **+17.59% slower** | +28.53% slower | FORGE is slower |
 | **Peak RSS Memory** | 640.5 MB – 675.8 MB | 605.5 MB – 648.2 MB | 558.3 MB – 620.1 MB | FORGE saves ~30-80 MB |
 | **JIT Compilation Overhead** | 0.00 s | 0.00 s (AOT compiled) | 0.00 s (AOT compiled) | Parity |
+
+*Definitions: Per-run medians are computed over 20 steady-state steps within each run (excluding 5 warmup steps). The sample mean of per-run medians, sample median of medians, SEM, and 95% confidence intervals are computed across independent runs.*
 
 ### 2.2 Sustained Heat-Soaked Benchmark (Population B)
 
