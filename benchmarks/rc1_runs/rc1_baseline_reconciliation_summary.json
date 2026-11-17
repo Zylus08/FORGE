@@ -1,0 +1,75 @@
+{
+  "stock_nhwc": {
+    "raw_medians_ms": [
+      206.25,
+      211.61,
+      214.85,
+      212.11,
+      215.72
+    ],
+    "stats": {
+      "n": 5,
+      "mean": 212.11,
+      "median": 212.11,
+      "std": 3.71,
+      "sem": 1.66,
+      "ci95_low": 207.5,
+      "ci95_high": 216.72
+    }
+  },
+  "stock_nchw": {
+    "raw_medians_ms": [
+      219.51,
+      220.53,
+      222.81,
+      222.84,
+      225.29
+    ],
+    "stats": {
+      "n": 5,
+      "mean": 222.2,
+      "median": 222.81,
+      "std": 2.26,
+      "sem": 1.01,
+      "ci95_low": 219.4,
+      "ci95_high": 225.0
+    }
+  },
+  "forge_nhwc": {
+    "raw_medians_ms": [
+      279.48,
+      265.77
+    ],
+    "stats": {
+      "n": 2,
+      "mean": 272.62,
+      "median": 272.62,
+      "std": 9.69,
+      "sem": 6.86,
+      "ci95_low": 185.5,
+      "ci95_high": 359.75
+    }
+  },
+  "forge_nchw": {
+    "raw_medians_ms": [
+      250.41,
+      248.45
+    ],
+    "stats": {
+      "n": 2,
+      "mean": 249.43,
+      "median": 249.43,
+      "std": 1.39,
+      "sem": 0.98,
+      "ci95_low": 236.97,
+      "ci95_high": 261.89
+    }
+  },
+  "statistical_comparison_stock": {
+    "welch_t_statistic": -5.1927,
+    "degrees_of_freedom": 6.6,
+    "diff_of_means_ms": -10.09,
+    "pct_diff": -4.76,
+    "statistically_distinguishable_alpha_0_05": true
+  }
+}

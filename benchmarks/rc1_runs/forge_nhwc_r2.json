@@ -1,0 +1,32 @@
+{
+  "backend": "forge",
+  "layout": "NHWC",
+  "threads": 10,
+  "interop": 1,
+  "epochs": 1,
+  "warmup_steps": 5,
+  "compile_overhead_s": 0.0,
+  "total_elapsed_s": 14.6901,
+  "peak_rss_mb": 666.52,
+  "git_commit": "8de48e12880711b17d787dcae6ccbb7f4a6d9d46",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "cpu_model": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+  "epochs_data": [
+    {
+      "epoch": 1,
+      "epoch_time_s": 14.677,
+      "median_step_ms": 265.77,
+      "mean_step_ms": 269.95,
+      "p95_step_ms": 282.46,
+      "median_fwd_ms": 94.85,
+      "median_bwd_ms": 153.55,
+      "median_opt_ms": 2.72,
+      "median_data_ms": 0.66,
+      "samples_per_sec": 481.6,
+      "train_acc_pct": 16.25,
+      "test_acc_pct": null,
+      "test_loss": null,
+      "steps_timed": 20
+    }
+  ]
+}

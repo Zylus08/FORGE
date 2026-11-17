@@ -74,6 +74,7 @@ def run_benchmark_subprocess(
     warmup_steps: int = 5,
     timed_steps: Optional[int] = None,
     output_json: Optional[str] = None,
+    skip_eval: bool = False,
 ) -> Dict:
     """Launch benchmark in a fresh isolated process."""
     cmd = [
@@ -90,6 +91,8 @@ def run_benchmark_subprocess(
     ]
     if timed_steps is not None:
         cmd.extend(["--timed-steps", str(timed_steps)])
+    if skip_eval:
+        cmd.append("--skip-eval")
     if output_json:
         cmd.extend(["--output-json", output_json])
 
@@ -122,6 +125,7 @@ def worker_main():
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--warmup-steps", type=int, default=5)
     parser.add_argument("--timed-steps", type=int, default=None)
+    parser.add_argument("--skip-eval", action="store_true", default=False)
     parser.add_argument("--output-json", type=str, default=None)
     args = parser.parse_args()
 
@@ -238,9 +242,12 @@ def worker_main():
         t_epoch_end = time.perf_counter()
 
         # Evaluation
-        optimizer.zero_grad(set_to_none=True)
-        gc.collect()
-        test_loss, test_acc = evaluate(model, test_loader, criterion, device)
+        if not args.skip_eval:
+            optimizer.zero_grad(set_to_none=True)
+            gc.collect()
+            test_loss, test_acc = evaluate(model, test_loader, criterion, device)
+        else:
+            test_loss, test_acc = None, None
 
         rec = {
             "epoch": epoch,
@@ -254,8 +261,8 @@ def worker_main():
             "median_data_ms": round(float(np.median(data_times)), 2),
             "samples_per_sec": round(128.0 / (float(np.median(step_times)) / 1000.0), 1),
             "train_acc_pct": round(correct / total * 100.0, 2),
-            "test_acc_pct": round(test_acc, 2),
-            "test_loss": round(test_loss, 4),
+            "test_acc_pct": round(test_acc, 2) if test_acc is not None else None,
+            "test_loss": round(test_loss, 4) if test_loss is not None else None,
             "steps_timed": len(step_times),
         }
         epoch_records.append(rec)
